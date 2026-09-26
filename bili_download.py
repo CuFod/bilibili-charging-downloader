@@ -20,6 +20,7 @@ import os, sys, json, subprocess, argparse, datetime, re
 
 PROJ = os.path.dirname(os.path.abspath(__file__))
 BBDOWN = os.path.join(PROJ, 'BBDown.exe')
+BBDOWN_UNIX = os.path.join(PROJ, 'BBDown')
 DEFAULT_COOKIE = os.path.join(PROJ, 'bili_cookie.txt')
 DOWNLOADS = os.path.join(PROJ, 'downloads')
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -90,31 +91,34 @@ def parse_aid_from_url(url):
     return None
 
 
-def run_bbdown(aid, cookie=None, page='ALL', info_only=False):
-    """调用BBDown下载单个视频."""
-    if not os.path.exists(BBDOWN):
-        # 尝试PATH中找
-        import shutil
-        bb = shutil.which('BBDown') or shutil.which('BBDown.exe')
-        if not bb:
-            print(f"错误: 找不到BBDown.exe, 请从 https://github.com/nilaoda/BBDown/releases 下载放到 {PROJ}")
-            sys.exit(1)
-        bbdown = bb
-    else:
-        bbdown = BBDOWN
+def run_bbdown(aid, cookie=None, page='all', info_only=False):
+    """调用 BBDownNext 下载/解析单个视频. 返回进程退出码."""
+    import shutil
+    candidates = [BBDOWN, BBDOWN_UNIX]
+    bbdown = next((p for p in candidates if os.path.exists(p)), None)
+    if not bbdown:
+        bbdown = shutil.which('BBDown') or shutil.which('BBDown.exe') or shutil.which('bbdown')
+    if not bbdown:
+        print("错误: 找不到BBDown。请使用维护版 https://github.com/KaiHuaDou/BBDownNext/releases")
+        return 127
 
     os.makedirs(DOWNLOADS, exist_ok=True)
-    cmd = [bbdown, f'av{aid}', '--work-dir', DOWNLOADS, '-F', FILE_PATTERN, '-p', page]
+    cmd = [bbdown, f'av{aid}', '--work-dir', DOWNLOADS, '-F', FILE_PATTERN, '-p', page or 'all']
     if cookie:
         if os.path.exists(cookie):
-            with open(cookie, 'r', encoding='utf-8') as f:
-                cmd += ['-c', f.read().strip()]
-        else:
-            cmd += ['-c', cookie]
+            with open(cookie, 'r', encoding='utf-8') as fh:
+                cookie = fh.read().strip()
+        if cookie:
+            cmd += ['--cookie', cookie]
     if info_only:
-        cmd += ['-info', '--show-all']
-    subprocess.run(cmd, cwd=PROJ)
+        cmd += ['--info-only']
 
+    proc = subprocess.run(cmd, cwd=PROJ)
+    if proc.returncode == 2:
+        print("充电权限不足：当前账号只能获取试看片段，BBDownNext 已阻止保存试看残片。")
+    elif proc.returncode != 0:
+        print(f"BBDown 失败: exit={proc.returncode}")
+    return proc.returncode
 
 def main():
     ap = argparse.ArgumentParser(description='B站视频下载(支持充电视频/UGC合集)')
@@ -154,7 +158,7 @@ def main():
                 print(f"  ... (共{len(eps)}集)")
         else:
             print("非合集视频(单P或多P)")
-        run_bbdown(aid, args.cookie, args.page, info_only=True)
+        run_bbdown(aid, cookie_str, args.page, info_only=True)
         return
 
     if ugc_season:
@@ -172,13 +176,16 @@ def main():
                 print(f"[{i}/{len(eps)}] 跳过(已下载) aid={ep['aid']}")
                 continue
             print(f"[{i}/{len(eps)}] aid={ep['aid']} {ep['title'][:40]}")
-            run_bbdown(ep['aid'], args.cookie)
-            with open(done_file, 'a', encoding='utf-8') as f:
-                f.write(str(ep['aid']) + '\n')
+            rc = run_bbdown(ep['aid'], cookie_str)
+            if rc == 0:
+                with open(done_file, 'a', encoding='utf-8') as f:
+                    f.write(str(ep['aid']) + '\n')
+            else:
+                print(f"  未标记为已完成: aid={ep['aid']} exit={rc}")
         print(f"\n合集下载完成! 共 {len(eps)} 集")
     else:
         print(f"\n标题: {title}")
-        run_bbdown(aid, args.cookie, args.page)
+        run_bbdown(aid, cookie_str, args.page)
 
 
 if __name__ == '__main__':
