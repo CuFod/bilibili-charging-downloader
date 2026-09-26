@@ -12,7 +12,7 @@ where BBDown.exe >nul 2>&1
 if %errorlevel% neq 0 (
     if not exist BBDown.exe (
         echo [错误] 找不到BBDown.exe
-        echo 请从 https://github.com/nilaoda/BBDown/releases 下载 BBDown.exe 放到本目录
+        echo 请从 https://github.com/KaiHuaDou/BBDownNext/releases 下载 BBDown.exe 放到本目录
         pause
         exit /b 1
     )
