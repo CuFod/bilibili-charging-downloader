@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """B站视频下载 - 支持单视频/UGC合集全下/充电视频.
 
-用 bili_login.py 登录获取cookie后, 用BBDown + cookie下载充电视频完整版.
-合集下载: B站API取ugc_season全部episode aid, 逐个下载(BBDown 1.6.3不认合集URL).
+用 bili_login.py 登录获取cookie后, 用 BBDownNext + cookie 下载账号有权访问的充电视频完整版.
+合集下载: B站API取ugc_season全部episode aid, 逐个调用 BBDownNext 下载。
 文件名格式: <标题>_<发布日期_时间>.mp4
 
 用法:
@@ -12,7 +12,7 @@
   python bili_download.py <链接> --cookie c.txt     # 指定cookie文件(下充电视频)
 
 首次使用:
-  1. 下载 BBDown.exe (https://github.com/nilaoda/BBDown/releases) 放到本目录或PATH
+  1. 下载维护版 BBDownNext (https://github.com/KaiHuaDou/BBDownNext/releases) 放到本目录或PATH
   2. pip install qrcode Pillow requests
   3. python bili_login.py  # 扫码登录, 生成bili_cookie.txt
 """
