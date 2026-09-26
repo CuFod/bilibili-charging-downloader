@@ -4,7 +4,7 @@
 
 **免代理国内友好**：应用内一键自动更新（jsDelivr 检查版本 + GitHub 加速镜像下载，全程免代理），安装包见 [GitHub Releases](https://github.com/montrush/bilibili-charging-downloader/releases/latest)。
 
-> 解决 [BBDown](https://github.com/nilaoda/BBDown) 1.6.3 登录失效问题：B站改版后 `BBDown login` 假成功（SESSDATA 永远为空），本工具直接调用B站扫码登录 API，从 `Set-Cookie` 响应头提取 cookie，再用 BBDown 下载充电视频完整版。
+> 下载内核已切换到维护中的 [BBDownNext](https://github.com/KaiHuaDou/BBDownNext)，并固定到包含 Cookie 覆盖修复的提交 `d3dc234225fa0012a3f3911f4457da11d486d93f`。本工具继续使用自己的扫码登录界面，从 B 站 `Set-Cookie` 提取已授权 Cookie，并通过 BBDownNext 当前的 WBI/playurl 链路下载；无充电权限时会识别试看并拒绝把残片误报为完整视频。
 
 > 🇨🇳 国内镜像：[Gitee 仓库](https://gitee.com/houplus/bilibili-charging-downloader)（与 GitHub 自动同步）
 
@@ -107,7 +107,7 @@ docker run -d \
 
 ## 工作原理
 
-### 登录（解决BBDown bug）
+### 登录与当前下载内核
 
 ```
 B站扫码登录 poll API 返回 code=0 时:
@@ -115,11 +115,11 @@ B站扫码登录 poll API 返回 code=0 时:
   Set-Cookie -> 含 SESSDATA等cookie (本工具从这里提取)
 ```
 
-本工具用 Python `requests` 的 `r.cookies`（自动解析 Set-Cookie 响应头）提取 cookie，这是 BBDown 1.6.3 没跟上的地方。
+本工具用 Python `requests` 的 `r.cookies`（自动解析 Set-Cookie 响应头）提取 Cookie；下载阶段把该登录态通过 BBDownNext 的 `--cookie` 参数传入。注意 BBDownNext 中 `-c` 已表示 `--config`，不能再作为 Cookie 参数使用。
 
 ### 合集下载
 
-BBDown 1.6.3 不认合集 URL，本工具用 B站 API `ugc_season` 获取全部 aid + pubdate，逐个调用 BBDown 下载。
+为了保留现有选集、队列和断点续传模型，本工具仍用 B站 API `ugc_season` 获取全部 aid + pubdate，再逐个调用 BBDownNext 下载。
 
 ### 断点续传
 
@@ -186,7 +186,7 @@ A: 不会，本工具自动获取合集全部视频。粘贴单集链接默认�
 
 ## 致谢
 
-- [BBDown](https://github.com/nilaoda/BBDown) - B站下载引擎 (MIT)
+- [BBDownNext](https://github.com/KaiHuaDou/BBDownNext) - 当前B站下载引擎，基于 nilaoda/BBDown 衍生 (MIT)
 - [ffmpeg](https://ffmpeg.org) - 音视频合成 (LGPL/GPL)
 - [Ant Design](https://ant.design) - 前端UI组件
 - 皮肤美术素材为 Stable Diffusion 生成及作者自绘
