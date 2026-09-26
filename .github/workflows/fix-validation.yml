@@ -1,0 +1,48 @@
+name: Fix validation
+
+on:
+  push:
+    branches:
+      - 'fix/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  BBDOWNNEXT_COMMIT: 'd3dc234225fa0012a3f3911f4457da11d486d93f'
+
+jobs:
+  python-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Python syntax
+        run: |
+          python -m py_compile server/services/bili_dl.py server/services/bili_auth.py bili_download.py
+      - name: BBDown invocation regression
+        run: python tests/test_bbdown_invocation.py
+      - name: Task queue regression
+        run: python tests/test_task_queue.py
+
+  bbdownnext-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout BBDownNext pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: KaiHuaDou/BBDownNext
+          ref: ${{ env.BBDOWNNEXT_COMMIT }}
+          path: bbdownnext
+          persist-credentials: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: bbdownnext/global.json
+      - name: Build pinned engine
+        run: |
+          dotnet publish bbdownnext/BBDown/BBDown.csproj -r linux-x64 -c Release -o bbdownnext/artifact
+          bbdownnext/artifact/BBDown --version
