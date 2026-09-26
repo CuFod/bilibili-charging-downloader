@@ -46,3 +46,23 @@ jobs:
         run: |
           dotnet publish bbdownnext/BBDown/BBDown.csproj -r linux-x64 -c Release -o bbdownnext/artifact
           bbdownnext/artifact/BBDown --version
+
+  bbdownnext-windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout BBDownNext pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: KaiHuaDou/BBDownNext
+          ref: ${{ env.BBDOWNNEXT_COMMIT }}
+          path: bbdownnext
+          persist-credentials: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: bbdownnext/global.json
+      - name: Build pinned engine (Windows x64)
+        shell: pwsh
+        run: |
+          dotnet publish bbdownnext/BBDown/BBDown.csproj -r win-x64 -c Release -o bbdownnext/artifact
+          & bbdownnext/artifact/BBDown.exe --version
