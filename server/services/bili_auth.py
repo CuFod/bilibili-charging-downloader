@@ -62,6 +62,23 @@ def get_cookie_str():
 
 
 def is_logged_in():
-    """是否已登录(cookie存在且含SESSDATA)."""
+    """是否已登录.
+
+    本地有 SESSDATA 后再用 nav 接口确认会话是否仍有效；网络异常时保守沿用
+    本地状态，避免临时断网把用户误判为退出登录。
+    """
     c = get_cookie_str()
-    return bool(c and 'SESSDATA=' in c and len(c) > 50)
+    if not (c and 'SESSDATA=' in c and len(c) > 50):
+        return False
+    try:
+        import requests
+        headers = dict(HEADERS)
+        headers['Cookie'] = c
+        r = requests.get('https://api.bilibili.com/x/web-interface/nav',
+                         headers=headers, timeout=10)
+        d = r.json()
+        if d.get('code') == 0:
+            return bool((d.get('data') or {}).get('isLogin'))
+    except Exception:
+        pass
+    return True
