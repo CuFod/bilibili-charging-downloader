@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  BBDOWN_VERSION: '1.6.3'
-  BBDOWN_DATE: '20240814'
+  BBDOWNNEXT_COMMIT: 'd3dc234225fa0012a3f3911f4457da11d486d93f'
 
 jobs:
   # ================= Windows: Setup.exe + 便携zip =================
@@ -42,13 +41,26 @@ jobs:
       - name: 安装Python依赖+PyInstaller
         run: pip install -r server/requirements.txt pyinstaller
 
-      - name: 下载 BBDown (win-x64)
+      - name: 检出 BBDownNext (固定修复提交)
+        uses: actions/checkout@v4
+        with:
+          repository: KaiHuaDou/BBDownNext
+          ref: ${{ env.BBDOWNNEXT_COMMIT }}
+          path: _bbdownnext
+          persist-credentials: false
+
+      - name: Setup .NET (BBDownNext)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: _bbdownnext/global.json
+
+      - name: 构建 BBDownNext (win-x64)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force vendor | Out-Null
-          Invoke-WebRequest -Uri "https://github.com/nilaoda/BBDown/releases/download/${{ env.BBDOWN_VERSION }}/BBDown_${{ env.BBDOWN_VERSION }}_${{ env.BBDOWN_DATE }}_win-x64.zip" -OutFile "$env:TEMP\bbdown.zip"
-          Expand-Archive "$env:TEMP\bbdown.zip" -DestinationPath vendor -Force
-          Get-ChildItem vendor
+          dotnet publish _bbdownnext/BBDown/BBDown.csproj -r win-x64 -c Release -o _bbdownnext/artifact
+          Copy-Item _bbdownnext/artifact/BBDown.exe vendor/BBDown.exe
+          & vendor/BBDown.exe --version
 
       - name: 下载 ffmpeg (gyan essentials)
         shell: pwsh
@@ -130,13 +142,26 @@ jobs:
       - name: 安装Python依赖+PyInstaller
         run: pip install -r server/requirements.txt pyinstaller
 
-      - name: 下载 BBDown (linux-x64)
+      - name: 检出 BBDownNext (固定修复提交)
+        uses: actions/checkout@v4
+        with:
+          repository: KaiHuaDou/BBDownNext
+          ref: ${{ env.BBDOWNNEXT_COMMIT }}
+          path: _bbdownnext
+          persist-credentials: false
+
+      - name: Setup .NET (BBDownNext)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: _bbdownnext/global.json
+
+      - name: 构建 BBDownNext (linux-x64)
         run: |
           mkdir -p vendor
-          curl -fL -o /tmp/bbdown.zip "https://github.com/nilaoda/BBDown/releases/download/${BBDOWN_VERSION}/BBDown_${BBDOWN_VERSION}_${BBDOWN_DATE}_linux-x64.zip"
-          unzip -o /tmp/bbdown.zip -d vendor
+          dotnet publish _bbdownnext/BBDown/BBDown.csproj -r linux-x64 -c Release -o _bbdownnext/artifact
+          cp _bbdownnext/artifact/BBDown vendor/BBDown
           chmod +x vendor/BBDown
-          ls -la vendor
+          vendor/BBDown --version
 
       - name: 下载 ffmpeg (BtbN GitHub构建)
         run: |
