@@ -2,14 +2,15 @@
 
 本项目分发时（Windows/Linux 安装包、Docker 镜像）包含以下第三方组件：
 
-## BBDown
+## BBDownNext
 
-- **用途**: B站视频下载引擎
-- **来源**: https://github.com/nilaoda/BBDown
+- **用途**: B站视频下载/解析引擎
+- **来源**: https://github.com/KaiHuaDou/BBDownNext
+- **固定提交**: `d3dc234225fa0012a3f3911f4457da11d486d93f`（包含命令行 Cookie 被续期逻辑覆盖的修复）
 - **许可证**: MIT License
-- **版权**: Copyright (c) nilaoda
+- **说明**: BBDownNext 基于 nilaoda/BBDown 衍生，版权与许可证信息以其仓库声明为准
 
-> MIT License 全文见 https://github.com/nilaoda/BBDown/blob/master/LICENSE
+> MIT License 全文见 https://github.com/KaiHuaDou/BBDownNext/blob/main/LICENSE
 
 ## ffmpeg
 
