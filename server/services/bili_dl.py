@@ -14,7 +14,8 @@
 import os, re, json, subprocess, datetime
 
 PROJ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BBDOWN = os.path.join(PROJ, 'BBDown.exe')  # Windows; Linux下用PATH中的BBDown
+BBDOWN = os.path.join(PROJ, 'BBDown.exe')  # Windows 打包产物
+BBDOWN_UNIX = os.path.join(PROJ, 'BBDown')    # Linux 打包产物
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 FILE_PATTERN = '<videoTitle>_<videoDate>'
 
@@ -439,8 +440,9 @@ parse_aid = lambda url: parse_link(url, cookie=None)
 
 def find_bbdown():
     """找BBDown可执行文件."""
-    if os.path.exists(BBDOWN):
-        return BBDOWN
+    for candidate in (BBDOWN, BBDOWN_UNIX):
+        if os.path.exists(candidate):
+            return candidate
     import shutil
     for name in ['BBDown', 'BBDown.exe', 'bbdown']:
         p = shutil.which(name)
@@ -449,33 +451,67 @@ def find_bbdown():
     return None
 
 
+def build_bbdown_cmd(bbdown, aid, download_dir, cookie=None):
+    """构造 BBDownNext 命令.
+
+    BBDownNext 中 -c 表示 --config，不再是 cookie；cookie 必须使用 --cookie。
+    默认不传 --allow-preview，让无充电权限时以退出码2拒绝保存试看残片。
+    """
+    cmd = [bbdown, f'av{aid}', '--work-dir', download_dir,
+           '-F', FILE_PATTERN, '-p', 'all']
+    if cookie:
+        cmd += ['--cookie', cookie]
+    return cmd
+
+
+def _bbdown_error_tail(output, limit=1600):
+    lines = [line.strip() for line in (output or '').splitlines() if line.strip()]
+    return ' | '.join(lines[-8:])[-limit:]
+
+
 def download_one(aid, download_dir, cookie=None, on_proc=None):
     """下载单个视频. 返回 (success, error_msg).
 
     on_proc: Popen创建后回调(任务管理器持有进程句柄, 暂停时kill).
+    BBDownNext 退出码2表示账号仅有充电试看片段权限；本工具把它标为失败，
+    避免5分钟试看被误记为完整下载成功。
     """
     bbdown = find_bbdown()
     if not bbdown:
         return False, 'BBDown not found'
     os.makedirs(download_dir, exist_ok=True)
-    cmd = [bbdown, f'av{aid}', '--work-dir', download_dir, '-F', FILE_PATTERN, '-p', 'ALL']
-    if cookie:
-        cmd += ['-c', cookie]
+    cmd = build_bbdown_cmd(bbdown, aid, download_dir, cookie)
     try:
-        proc = subprocess.Popen(cmd, cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(
+            cmd, cwd=PROJ,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding='utf-8', errors='replace',
+        )
         if on_proc:
             on_proc(proc)
-        # 超时放宽到1小时: 充电视频可能很长/断链慢速重试
-        rc = proc.wait(timeout=3600)
+        try:
+            output, _ = proc.communicate(timeout=3600)
+        except subprocess.TimeoutExpired:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            try:
+                proc.communicate(timeout=10)
+            except Exception:
+                pass
+            return False, 'timeout'
+
+        rc = proc.returncode
         if rc == 0:
             return True, None
-        return False, f'exit={rc}'
-    except subprocess.TimeoutExpired:
-        try:
-            proc.kill()
-        except Exception:
-            pass
-        return False, 'timeout'
+        if rc == 2:
+            return False, (
+                '充电权限不足：当前登录账号只能获取试看片段，'
+                '已阻止把试看残片保存为完整视频。请确认该账号已为此UP主充电并重新扫码登录。'
+            )
+        tail = _bbdown_error_tail(output)
+        return False, f'exit={rc}' + (f': {tail}' if tail else '')
     except Exception as e:
         return False, str(e)
 
